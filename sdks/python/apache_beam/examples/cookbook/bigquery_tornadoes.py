@@ -38,6 +38,7 @@ from __future__ import absolute_import
 
 import argparse
 import logging
+import pyarrow
 
 import apache_beam as beam
 
@@ -76,11 +77,12 @@ def run(argv=None):
           'PROJECT:DATASET.TABLE or DATASET.TABLE.'))
   parser.add_argument(
       '--output',
-      required=True,
+      default=None,
       help=(
-          'Output BigQuery table for results specified as: '
+          'Input BigQuery table to process specified as: '
           'PROJECT:DATASET.TABLE or DATASET.TABLE.'))
 
+  
   parser.add_argument(
       '--gcs_location',
       required=False,
@@ -97,11 +99,13 @@ def run(argv=None):
 
     # Write the output using a "Write" transform that has side effects.
     # pylint: disable=expression-not-assigned
-    counts | 'Write' >> beam.io.WriteToBigQuery(
-        known_args.output,
-        schema='month:INTEGER, tornado_count:INTEGER',
-        create_disposition=beam.io.BigQueryDisposition.CREATE_IF_NEEDED,
-        write_disposition=beam.io.BigQueryDisposition.WRITE_TRUNCATE)
+    
+    counts | 'Write' >> beam.io.parquetio.WriteToParquet(
+      known_args.output,
+      pyarrow.schema(
+        [('month', pyarrow.int64()), ('tornado_count', pyarrow.int64())]
+      )
+    )
 
     # Run the pipeline (all operations are deferred until run() is called).
 
